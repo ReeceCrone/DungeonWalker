@@ -15,8 +15,9 @@ class MainApp(QtWidgets.QMainWindow):
         self.cols = 10
         self.ui.dungeonWidget.setRowCount(self.rows)
         self.ui.dungeonWidget.setColumnCount(self.cols)
-        self.ui.dungeonWidget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-
+        self.ui.dungeonWidget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers) # disable text editing in grids
+        self.ui.dungeonWidget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection) # disable selection
+        
 
         for i in range(self.rows):
             self.ui.dungeonWidget.setRowHeight(i, 60)
