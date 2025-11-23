@@ -1,0 +1,23 @@
+/* style.qss */
+QTableWidget {
+    border: 3px solid black;
+    background-color: brown;
+}
+
+
+QTableWidget::item:hover {
+    border-radius: 5px;
+    background-color: #ddd;
+}
+
+
+QPushButton {
+    background-color: #444;
+    color: white;
+    border-radius: 6px;
+    padding: 6px;
+}
+
+QPushButton:hover {
+    background-color: #666;
+}
