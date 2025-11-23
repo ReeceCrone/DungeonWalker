@@ -12,7 +12,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(800, 600)
+        MainWindow.resize(930, 657)
         self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.gridLayout_2 = QtWidgets.QGridLayout(self.centralwidget)
@@ -29,9 +29,15 @@ class Ui_MainWindow(object):
         self.dungeonWidget.verticalHeader().setVisible(False)
         self.dungeonWidget.verticalHeader().setHighlightSections(False)
         self.gridLayout_2.addWidget(self.dungeonWidget, 0, 0, 1, 1)
+        self.verticalLayout_2 = QtWidgets.QVBoxLayout()
+        self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.moveButton = QtWidgets.QPushButton(parent=self.centralwidget)
         self.moveButton.setObjectName("moveButton")
-        self.gridLayout_2.addWidget(self.moveButton, 0, 1, 1, 1)
+        self.verticalLayout_2.addWidget(self.moveButton)
+        self.searchComboBox = QtWidgets.QComboBox(parent=self.centralwidget)
+        self.searchComboBox.setObjectName("searchComboBox")
+        self.verticalLayout_2.addWidget(self.searchComboBox)
+        self.gridLayout_2.addLayout(self.verticalLayout_2, 0, 3, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
