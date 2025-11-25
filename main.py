@@ -662,7 +662,7 @@ class MainApp(QtWidgets.QMainWindow):
         button_layout.addWidget(self.clearButton)
 
 
-        # --- Grid ---
+        #Grid
         rows, cols = 10, 10
         self.grid_model = GridModel(rows, cols)
         self.dungeonView = DungeonView(rows, cols, self.grid_model)
@@ -677,7 +677,7 @@ class MainApp(QtWidgets.QMainWindow):
         algo_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
     
 
-        # --- Brush Selector Panel (Right Side) ---
+        #Brush Selector Panel
         brush_panel = QtWidgets.QWidget()
         brush_panel.setMaximumWidth(200)
         brush_layout = QtWidgets.QVBoxLayout(brush_panel)
@@ -821,7 +821,9 @@ class MainApp(QtWidgets.QMainWindow):
             self.player_widget.place_at(
                 self.player_model.row,
                 self.player_model.col
-        )
+            )
+        if hasattr(self, "path_overlay"):  # Reposition path overlay
+            self.path_overlay.position_overlay()
 
 
 # ======================= EXECUTION =======================
