@@ -11,9 +11,16 @@ QTableWidget::item:hover {
 }
 
 
-QPushButton {
+QPushButton:enabled {
     background-color: #444;
     color: white;
+    border-radius: 6px;
+    padding: 6px;
+}
+
+QPushButton:disabled {
+    background-color: #222;
+    color: #888;
     border-radius: 6px;
     padding: 6px;
 }
