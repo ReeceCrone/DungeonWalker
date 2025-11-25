@@ -282,13 +282,114 @@ class Pathfinder:
     
     @staticmethod
     def dijkstra(start_row, start_col, grid_model):
-        # Placeholder Dijkstra implementation
-        return [(start_row + i, start_col + i) for i in range(1, 5)]
+        """Dijkstra's algorithm - finds shortest path with weighted costs"""
+        import heapq
+        
+        rows, cols = grid_model.rows, grid_model.cols
+        goal_row, goal_col = rows - 1, cols - 1
+        
+        # Priority queue: (cost, row, col)
+        # Dijkstra uses a min-heap to always explore the lowest cost path first
+        pq = [(0, start_row, start_col)]
+        visited = set()
+        search_history = []
+        costs = {(start_row, start_col): 0}  # Track minimum cost to reach each cell
+        
+        # Directions: up, down, left, right
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        
+        while pq:
+            current_cost, row, col = heapq.heappop(pq)
+            
+            # Skip if already visited
+            if (row, col) in visited:
+                continue
+            
+            visited.add((row, col))
+            search_history.append((row, col))
+            
+            # Check if goal reached
+            if row == goal_row and col == goal_col:
+                return search_history
+            
+            # Explore neighbors
+            for dr, dc in directions:
+                new_row, new_col = row + dr, col + dc
+                
+                # Check bounds
+                if 0 <= new_row < rows and 0 <= new_col < cols:
+                    # Check if not visited and not an obstacle
+                    if (new_row, new_col) not in visited and grid_model.get_cell_color(new_row, new_col) != "grey":
+                        # Cost to move to any cell is 1 (uniform cost)
+                        # You could modify this to have different terrain costs
+                        new_cost = current_cost + 1
+                        
+                        # Only add if we found a better path or haven't visited yet
+                        if (new_row, new_col) not in costs or new_cost < costs[(new_row, new_col)]:
+                            costs[(new_row, new_col)] = new_cost
+                            heapq.heappush(pq, (new_cost, new_row, new_col))
+        
+        return search_history
     
     @staticmethod
     def a_star(start_row, start_col, grid_model):
-        # Placeholder A* implementation
-        return [(start_row + i, start_col - i) for i in range(1, 5)]
+        """A* algorithm - finds shortest path using heuristic (Manhattan distance)"""
+        import heapq
+        
+        rows, cols = grid_model.rows, grid_model.cols
+        goal_row, goal_col = rows - 1, cols - 1
+        
+        # Heuristic function: Manhattan distance to goal
+        def heuristic(row, col):
+            return abs(row - goal_row) + abs(col - goal_col)
+        
+        # Priority queue: (f_score, g_score, row, col)
+        # f_score = g_score + h_score (actual cost + estimated cost to goal)
+        # g_score = actual cost from start
+        # h_score = heuristic estimate to goal
+        start_h = heuristic(start_row, start_col)
+        pq = [(start_h, 0, start_row, start_col)]
+        visited = set()
+        search_history = []
+        g_scores = {(start_row, start_col): 0}  # Track actual cost from start
+        
+        # Directions: up, down, left, right
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        
+        while pq:
+            f_score, g_score, row, col = heapq.heappop(pq)
+            
+            # Skip if already visited
+            if (row, col) in visited:
+                continue
+            
+            visited.add((row, col))
+            search_history.append((row, col))
+            
+            # Check if goal reached
+            if row == goal_row and col == goal_col:
+                return search_history
+            
+            # Explore neighbors
+            for dr, dc in directions:
+                new_row, new_col = row + dr, col + dc
+                
+                # Check bounds
+                if 0 <= new_row < rows and 0 <= new_col < cols:
+                    # Check if not visited and not an obstacle
+                    if (new_row, new_col) not in visited and grid_model.get_cell_color(new_row, new_col) != "grey":
+                        # Calculate new g_score (actual cost from start)
+                        new_g_score = g_score + 1
+                        
+                        # Only add if we found a better path or haven't visited yet
+                        if (new_row, new_col) not in g_scores or new_g_score < g_scores[(new_row, new_col)]:
+                            g_scores[(new_row, new_col)] = new_g_score
+                            # Calculate f_score = g_score + heuristic
+                            h_score = heuristic(new_row, new_col)
+                            f_score = new_g_score + h_score
+                            heapq.heappush(pq, (f_score, new_g_score, new_row, new_col))
+        
+        return search_history
 
 
 # ======================= MAIN WINDOW =======================
