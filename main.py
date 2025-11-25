@@ -22,6 +22,7 @@ class MainApp(QtWidgets.QMainWindow):
         self.ui.dungeonWidget.setShowGrid(False)
         self.ui.dungeonWidget.setMaximumSize(QtCore.QSize(606, 606))
         self.ui.searchComboBox.addItems(["BFS", "DFS", "Dijkstra", "A*"])
+    
 
         for i in range(self.rows):
             self.ui.dungeonWidget.setRowHeight(i, 60)
@@ -81,6 +82,8 @@ class Player(QtWidgets.QWidget):
         self.place_at(row, col)
         self.show()
         self.raise_()
+    
+
 
     def place_at(self, row, col):
         table_pos = self.table.mapTo(self.parent(), QtCore.QPoint(0, 0))
@@ -125,10 +128,12 @@ class GameController:
             print("No path returned!")
             return
         self.timer.start()
+        self.main_app.ui.moveButton.setEnabled(False)
 
     def move_step(self):
         if not self.path:
             self.timer.stop()
+            self.main_app.ui.moveButton.setEnabled(True)
             return
         next_row, next_col = self.path.pop(0)
         self.player.animate_move(next_row, next_col)
