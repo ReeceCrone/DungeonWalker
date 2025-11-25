@@ -1,97 +1,96 @@
 from PyQt6 import QtWidgets, QtCore, QtGui
-from ui_main_window import Ui_MainWindow
 import sys
 
 
-class MainApp(QtWidgets.QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
-        self.load_stylesheet("style.qss")
 
-        # Grid setup
-        self.rows = 10
-        self.cols = 10
-        self.ui.dungeonWidget.setRowCount(self.rows)
-        self.ui.dungeonWidget.setColumnCount(self.cols)
-        self.ui.dungeonWidget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.ui.dungeonWidget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
-        self.ui.dungeonWidget.horizontalHeader().setVisible(False)
-        self.ui.dungeonWidget.verticalHeader().setVisible(False)
-        self.ui.dungeonWidget.setShowGrid(False)
-        self.ui.dungeonWidget.setMaximumSize(QtCore.QSize(606, 606))
-        self.ui.searchComboBox.addItems(["BFS", "DFS", "Dijkstra", "A*"])
-    
+# ======================= MODEL =======================
 
-        for i in range(self.rows):
-            self.ui.dungeonWidget.setRowHeight(i, 60)
-        for j in range(self.cols):
-            self.ui.dungeonWidget.setColumnWidth(j, 60)
+class GridModel:
+    """Holds the logical state of the dungeon grid."""
+    def __init__(self, rows, cols, default_color="brown"):
+        self.rows = rows
+        self.cols = cols
+        self.grid = [[default_color for _ in range(cols)] for _ in range(rows)]
 
-        # Fill cells
-        for i in range(self.rows):
-            for j in range(self.cols):
-                item = QtWidgets.QTableWidgetItem()
-                item.setBackground(QtGui.QColor("brown"))
-                self.ui.dungeonWidget.setItem(i, j, item)
+    def toggle_cell(self, row, col):
+        """Toggle between brown and grey."""
+        self.grid[row][col] = "grey" if self.grid[row][col] == "brown" else "brown"
+        return self.grid[row][col]
 
-        self.ui.dungeonWidget.cellClicked.connect(self.cell_clicked)
-        self.cell_data = [["brown" for _ in range(self.cols)] for _ in range(self.rows)]
-
-        # Create player & controller
-        QtCore.QTimer.singleShot(0, self.setup_game)
-
-    def setup_game(self):
-        """Create Player and GameController after UI is loaded."""
-        self.player = Player(self.ui.centralwidget, self.ui.dungeonWidget)
-        self.controller = GameController(self.player, self)
-
-        # Button to trigger path movement
-        self.ui.moveButton.clicked.connect(self.controller.start_movement)
-
-    def cell_clicked(self, row, col):
-        current = self.cell_data[row][col]
-        new_color = "grey" if current == "brown" else "brown"
-        self.cell_data[row][col] = new_color
-        self.ui.dungeonWidget.item(row, col).setBackground(QtGui.QColor(new_color))
-
-    def load_stylesheet(self, file_path):
-        with open(file_path, "r") as f:
-            self.setStyleSheet(f.read())
+    def get_cell_color(self, row, col):
+        return self.grid[row][col]
 
 
-# ---------------------------- PLAYER CLASS ----------------------------
-
-class Player(QtWidgets.QWidget):
-    def __init__(self, parent, table_widget, row=0, col=0, color="lime", size=45):
-        super().__init__(parent)
-        self.table = table_widget
+class PlayerModel:
+    """Holds player's logical position."""
+    def __init__(self, row=0, col=0):
         self.row = row
         self.col = col
+
+    def update_position(self, row, col):
+        self.row, self.col = row, col
+
+# ======================= VIEW =======================
+
+class DungeonView(QtWidgets.QTableWidget):
+    cellClickedSignal = QtCore.pyqtSignal(int, int)
+
+    def __init__(self, rows, cols):
+        super().__init__(rows, cols)
+        self.configure_table()
+
+    def configure_table(self):
+        self.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+        self.horizontalHeader().setVisible(False)
+        self.verticalHeader().setVisible(False)
+        self.setShowGrid(False)
+
+        for i in range(self.rowCount()):
+            self.setRowHeight(i, 60)
+        for j in range(self.columnCount()):
+            self.setColumnWidth(j, 60)
+
+        # Fill with items
+        for i in range(self.rowCount()):
+            for j in range(self.columnCount()):
+                self.setItem(i, j, QtWidgets.QTableWidgetItem())
+
+        self.cellClicked.connect(self.cellClickedSignal.emit)
+
+    def update_cell_color(self, row, col, color):
+        self.item(row, col).setBackground(QtGui.QColor(color))
+
+
+class Player(QtWidgets.QWidget):
+    """Visual representation of the player."""
+    def __init__(self, parent, table_widget, model, size=45):
+        super().__init__(parent)
+        self.table = table_widget
+        self.model = model
         self.cell_size = size
 
+        # Appearance
         self.setFixedSize(size, size)
-        self.setStyleSheet(f"background-color: {color}; border-radius: 10px;")
+        self.setStyleSheet("background-color: lime; border-radius: 10px;")
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
 
+        # Animation setup
         self.animation = QtCore.QPropertyAnimation(self, b"pos")
         self.animation.setDuration(250)
         self.animation.setEasingCurve(QtCore.QEasingCurve.Type.InOutQuad)
 
-        self.place_at(row, col)
+        QtCore.QTimer.singleShot(0, lambda: self.place_at(0, 0))
+
         self.show()
         self.raise_()
-    
-
 
     def place_at(self, row, col):
         table_pos = self.table.mapTo(self.parent(), QtCore.QPoint(0, 0))
+        print(self.table.columnWidth(0), self.table.rowHeight(0))
         x = table_pos.x() + col * self.table.columnWidth(0) + 10
         y = table_pos.y() + row * self.table.rowHeight(0) + 10
         self.move(x, y)
-        self.row = row
-        self.col = col
 
     def animate_move(self, row, col):
         table_pos = self.table.mapTo(self.parent(), QtCore.QPoint(0, 0))
@@ -103,55 +102,122 @@ class Player(QtWidgets.QWidget):
         self.animation.setStartValue(self.pos())
         self.animation.setEndValue(end_pos)
         self.animation.start()
-        self.row, self.col = row, col
         self.raise_()
 
 
-# ---------------------------- GAME CONTROLLER ----------------------------
+# ======================= CONTROLLER =======================
 
 class GameController:
-    def __init__(self, player, main_app):
-        self.player = player
-        self.table = main_app.ui.dungeonWidget
-        self.main_app = main_app
+    def __init__(self, grid_model, player_model, dungeon_view, player_widget, main_window):
+        self.grid_model = grid_model
+        self.player_model = player_model
+        self.view = dungeon_view
+        self.player_widget = player_widget
+        self.main_window = main_window
+
+        # Handle cell clicks
+        self.view.cellClickedSignal.connect(self.handle_cell_click)
+
+        # Movement timer
         self.timer = QtCore.QTimer()
         self.timer.setInterval(300)
         self.timer.timeout.connect(self.move_step)
-        self.path = []  # Will be filled by Pathfinder
+        self.path = []
+
+    def handle_cell_click(self, row, col):
+        new_color = self.grid_model.toggle_cell(row, col)
+        self.view.update_cell_color(row, col, new_color)
 
     def start_movement(self):
-        """Ask Pathfinder for path and begin moving."""
-        algorithm = self.main_app.ui.searchComboBox.currentText()
-        print(f"Using algorithm: {algorithm}")
-        self.path = Pathfinder.get_path(self.player.row, self.player.col, algorithm)  # TODO
+        algorithm = self.main_window.searchComboBox.currentText()
+        self.path = Pathfinder.get_path(self.player_model.row, self.player_model.col, algorithm)
         if not self.path:
-            print("No path returned!")
+            print("No path found.")
             return
+        self.main_window.moveButton.setEnabled(False)
         self.timer.start()
-        self.main_app.ui.moveButton.setEnabled(False)
 
     def move_step(self):
         if not self.path:
             self.timer.stop()
-            self.main_app.ui.moveButton.setEnabled(True)
+            self.main_window.moveButton.setEnabled(True)
             return
+
         next_row, next_col = self.path.pop(0)
-        self.player.animate_move(next_row, next_col)
+        self.player_model.update_position(next_row, next_col)
+        self.player_widget.animate_move(next_row, next_col)
 
 
-# ---------------------------- PATHFINDER ----------------------------
+# ======================= SEARCH / PATHFINDING =======================
 
 class Pathfinder:
     @staticmethod
     def get_path(start_row, start_col, algorithm):
+        print(f"Pathfinding using {algorithm} from ({start_row}, {start_col})")
+        # TODO: Implement pathfinding here
+        return [(start_row, i) for i in range(1, 10)]  # Example
+
+
+# ======================= MAIN WINDOW =======================
+
+class MainApp(QtWidgets.QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.resize(800, 800)
+        self.setWindowTitle("Dungeon Walker")
+        self.load_stylesheet("style.qss")
+
+
+        # --- Basic UI ---
+        central = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(central)
+        self.setCentralWidget(central)
+
+        self.searchComboBox = QtWidgets.QComboBox()
+        self.searchComboBox.addItems(["BFS", "DFS", "Dijkstra", "A*"])
+
+        self.moveButton = QtWidgets.QPushButton("Move Player")
+
+        # --- Grid ---
+        rows, cols = 10, 10
+        self.grid_model = GridModel(rows, cols)
+        self.dungeonView = DungeonView(rows, cols)
+        
+        self.dungeonView.setMaximumSize(QtCore.QSize(606, 606))
+
+
+        # Layout
+        layout.addWidget(self.dungeonView)
+        layout.addWidget(self.searchComboBox)
+        layout.addWidget(self.moveButton)
        
-        # TODO: implement search algorithms
-        print(f"Finding path from ({start_row}, {start_col}) using {algorithm}")
-        return [(0,1),(0,2)]  # placeholder
+
+        # Player setup
+        self.player_model = PlayerModel()
+        self.player_widget = Player(self, self.dungeonView, self.player_model)
+
+        # Controller
+        self.controller = GameController(
+            self.grid_model, self.player_model,
+            self.dungeonView, self.player_widget, self
+        )
+
+        self.moveButton.clicked.connect(self.controller.start_movement)
     
+    def load_stylesheet(self, file_path):
+        with open(file_path, "r") as f:
+            self.setStyleSheet(f.read())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "player_widget"):  # Make sure player widget exists
+            self.player_widget.place_at(
+                self.player_model.row,
+                self.player_model.col
+        )
 
 
-# ---------------------------- RUN APP ----------------------------
+# ======================= EXECUTION =======================
 
 app = QtWidgets.QApplication(sys.argv)
 window = MainApp()
