@@ -19,6 +19,11 @@ class GridModel:
 
     def get_cell_color(self, row, col):
         return self.grid[row][col]
+    
+    def reset_grid(self):
+        for i in range(self.rows):
+            for j in range(self.cols):
+                self.grid[i][j] = "brown"
 
 
 class PlayerModel:
@@ -137,6 +142,13 @@ class GameController:
         self.main_window.moveButton.setEnabled(False)
         self.timer.start()
 
+    def reset_obstacles(self):
+        self.grid_model.reset_grid()
+        # Update the view to reflect the reset
+        for i in range(self.grid_model.rows):
+            for j in range(self.grid_model.cols):
+                self.view.update_cell_color(i, j, "brown")
+
     def move_step(self):
         if not self.path:
             self.timer.stop()
@@ -168,15 +180,38 @@ class MainApp(QtWidgets.QMainWindow):
         self.load_stylesheet("style.qss")
 
 
+
+
         # --- Basic UI ---
         central = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(central)
+        button_layout = QtWidgets.QHBoxLayout()
+        algo_layout = QtWidgets.QHBoxLayout()
         self.setCentralWidget(central)
+
+        self.titleLabel = QtWidgets.QLabel("DUNGEON WALKER")
+        font = QtGui.QFont("Arial", 24, QtGui.QFont.Weight.Bold)
+        self.titleLabel.setFont(font)
+        self.titleLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+        self.algoLabel = QtWidgets.QLabel("Select Search Algorithm:")
+        self.algoLabel.setFont(QtGui.QFont("Arial", 14))
+        
 
         self.searchComboBox = QtWidgets.QComboBox()
         self.searchComboBox.addItems(["BFS", "DFS", "Dijkstra", "A*"])
-
+        
         self.moveButton = QtWidgets.QPushButton("Move Player")
+ 
+        self.resetButton = QtWidgets.QPushButton("Reset Player")
+
+        self.clearButton = QtWidgets.QPushButton("Clear Obstacles")
+  
+
+        button_layout.addWidget(self.moveButton)
+        button_layout.addWidget(self.resetButton)  
+        button_layout.addWidget(self.clearButton)
+
 
         # --- Grid ---
         rows, cols = 10, 10
@@ -184,12 +219,24 @@ class MainApp(QtWidgets.QMainWindow):
         self.dungeonView = DungeonView(rows, cols)
         
         self.dungeonView.setMaximumSize(QtCore.QSize(606, 606))
+        self.dungeonView.setMinimumSize(QtCore.QSize(606, 606))
+
+
+        #Algorithm layout
+        algo_layout.addWidget(self.algoLabel)
+        algo_layout.addWidget(self.searchComboBox)
+        algo_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+    
 
 
         # Layout
+        layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(20)
+        layout.addWidget(self.titleLabel)
         layout.addWidget(self.dungeonView)
-        layout.addWidget(self.searchComboBox)
-        layout.addWidget(self.moveButton)
+        layout.addLayout(button_layout)
+        layout.addLayout(algo_layout)
+  
        
 
         # Player setup
@@ -203,6 +250,8 @@ class MainApp(QtWidgets.QMainWindow):
         )
 
         self.moveButton.clicked.connect(self.controller.start_movement)
+        self.clearButton.clicked.connect(self.controller.reset_obstacles)
+    
     
     def load_stylesheet(self, file_path):
         with open(file_path, "r") as f:
