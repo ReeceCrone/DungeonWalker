@@ -107,6 +107,7 @@ class Player(QtWidgets.QWidget):
         self.show()
         self.raise_()
 
+    # Place player at specific cell without animation
     def place_at(self, row, col):
         table_pos = self.table.mapTo(self.parent(), QtCore.QPoint(0, 0))
         print(self.table.columnWidth(0), self.table.rowHeight(0))
@@ -114,6 +115,7 @@ class Player(QtWidgets.QWidget):
         y = table_pos.y() + row * self.table.rowHeight(0) + 10
         self.move(x, y)
 
+    # Animate movement to new cell
     def animate_move(self, row, col):
         table_pos = self.table.mapTo(self.parent(), QtCore.QPoint(0, 0))
         end_pos = QtCore.QPoint(
@@ -152,7 +154,7 @@ class GameController:
 
     def start_movement(self):
         algorithm = self.main_window.searchComboBox.currentText()
-        self.path = Pathfinder.get_path(self.player_model.row, self.player_model.col, algorithm)
+        self.path = Pathfinder.get_path(self.player_model.row, self.player_model.col, algorithm, self.grid_model)
         if not self.path:
             print("No path found.")
             return
@@ -185,33 +187,106 @@ class GameController:
 
 class Pathfinder:
     @staticmethod
-    def get_path(start_row, start_col, algorithm):
+    def get_path(start_row, start_col, algorithm, grid_model):
         print(f"Pathfinding using {algorithm} from ({start_row}, {start_col})")
-        # TODO: Implement pathfinding here
         match algorithm:
             case "BFS":
-                return Pathfinder.bfs(start_row, start_col)
+                return Pathfinder.bfs(start_row, start_col, grid_model)
             case "DFS":
-                return Pathfinder.dfs(start_row, start_col)
+                return Pathfinder.dfs(start_row, start_col, grid_model)
             case "Dijkstra":
-                return Pathfinder.dijkstra(start_row, start_col)
+                return Pathfinder.dijkstra(start_row, start_col, grid_model)
             case "A*":
-                return Pathfinder.a_star(start_row, start_col)
+                return Pathfinder.a_star(start_row, start_col, grid_model)
             
-    def bfs(start_row, start_col):
-        # Placeholder BFS implementation
+    @staticmethod
+    def bfs(start_row, start_col, grid_model):
+        """Breadth-First Search pathfinding - returns full search history"""
+        from collections import deque
+        
+        rows, cols = grid_model.rows, grid_model.cols
+        goal_row, goal_col = rows - 1, cols - 1  # Bottom-right corner
+        
+        # BFS uses a queue
+        queue = deque([(start_row, start_col)])
+        visited = set()
+        visited.add((start_row, start_col))
+        parent = {}  # To reconstruct path
+        search_history = []  # Track every cell visited in order
+        
+        # Directions: up, down, left, right
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        
+        while queue:
+            row, col = queue.popleft()
+            search_history.append((row, col))  # Add to search history
+            
+            # Check if we reached the goal
+            if row == goal_row and col == goal_col:
+                # Return the complete search history (shows exploration order)
+                return search_history
+            
+            # Explore neighbors
+            for dr, dc in directions:
+                new_row, new_col = row + dr, col + dc
+                
+                # Check bounds
+                if 0 <= new_row < rows and 0 <= new_col < cols:
+                    # Check if not visited and not an obstacle (grey)
+                    if (new_row, new_col) not in visited and grid_model.get_cell_color(new_row, new_col) != "grey":
+                        visited.add((new_row, new_col))
+                        parent[(new_row, new_col)] = (row, col)
+                        queue.append((new_row, new_col))
+        
+        # No path found - return what we explored
+        return search_history
+    
+    @staticmethod
+    def dfs(start_row, start_col, grid_model):
+        """Depth-First Search pathfinding - returns full search history"""
+        stack = [(start_row, start_col)]
+        visited = set()
+        search_history = []
+        
+        rows, cols = grid_model.rows, grid_model.cols
+        goal_row, goal_col = rows - 1, cols - 1  # Bottom-right corner
+        
+        # 3. Define directions to explore (up, down, left, right)
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
-        return [(start_row + i, start_col) for i in range(1, 5)]
+        while stack:
+            row, col = stack.pop()
+            if (row, col) in visited:
+                print("Already visited:", (row, col))
+                continue
+            print("Visiting:", (row, col))
+            visited.add((row, col))
+            search_history.append((row, col))
+
+            # Check if we reached the goal
+            if row == goal_row and col == goal_col:
+                return search_history
+
+            # Explore neighbors
+            for dr, dc in directions:
+                new_row, new_col = row + dr, col + dc
+
+                # Check bounds
+                if 0 <= new_row < rows and 0 <= new_col < cols:
+                    # Check if not visited and not an obstacle (grey)
+                    if (new_row, new_col) not in visited and grid_model.get_cell_color(new_row, new_col) != "grey":
+                        stack.append((new_row, new_col))
+        
+        return search_history
+
     
-    def dfs(start_row, start_col):
-        # Placeholder DFS implementation
-        return [(start_row, start_col + i) for i in range(1, 5)]
-    
-    def dijkstra(start_row, start_col):
+    @staticmethod
+    def dijkstra(start_row, start_col, grid_model):
         # Placeholder Dijkstra implementation
         return [(start_row + i, start_col + i) for i in range(1, 5)]
     
-    def a_star(start_row, start_col):
+    @staticmethod
+    def a_star(start_row, start_col, grid_model):
         # Placeholder A* implementation
         return [(start_row + i, start_col - i) for i in range(1, 5)]
 
