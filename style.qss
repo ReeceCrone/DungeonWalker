@@ -1,6 +1,13 @@
 /* style.qss */
+
+QWidget {
+    background-color: #ddd;
+}
+
+
 QTableWidget {
-    border: 3px solid black;
+    border: 2px solid black;
+    border-radius: 10px;
     background-color: brown;
 }
 
@@ -11,13 +18,6 @@ QTableWidget::item:hover {
 }
 
 
-QPushButton:enabled {
-    background-color: #444;
-    color: white;
-    border-radius: 6px;
-    padding: 6px;
-}
-
 QPushButton:disabled {
     background-color: #222;
     color: #888;
@@ -25,6 +25,26 @@ QPushButton:disabled {
     padding: 6px;
 }
 
+
+
+QPushButton:enabled {
+    background-color: #fc0;
+    color: black;
+    border: 3px solid black;
+    padding: 6px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
 QPushButton:hover {
-    background-color: #666;
+    background-color: #a82;
+}
+
+QComboBox {
+    background-color: #fc0;
+    border: 3px solid black;
+    padding: 6px;
+    color: black;
+    font-weight: bold;
+    font-size: 14px;
 }
