@@ -239,16 +239,16 @@ class PathOverlay(QtWidgets.QWidget):
         painter.setPen(QtCore.Qt.PenStyle.NoPen)
         
         for row, col in self.visited_cells:
-            x = col * self.cell_size + 10
-            y = row * self.cell_size + 10
+            x = col * self.cell_size + 11
+            y = row * self.cell_size + 11
             painter.drawRect(x, y, self.cell_size - 20, self.cell_size - 20)
         
         # Draw final path in semi-transparent cyan
         painter.setBrush(QtGui.QColor(0, 255, 255, 150))  # cyan with alpha
         
         for row, col in self.final_path:
-            x = col * self.cell_size + 15
-            y = row * self.cell_size + 15
+            x = col * self.cell_size + 16
+            y = row * self.cell_size + 16
             painter.drawRect(x, y, self.cell_size - 30, self.cell_size - 30)
 
 
@@ -329,7 +329,6 @@ class GameController:
         self.main_window.moveButton.setEnabled(False)
         self.main_window.resetButton.setEnabled(False)
         self.main_window.clearButton.setEnabled(False)
-        self.main_window.statusBar().showMessage(f"Moving using {algorithm}...")
         self.timer.start()
 
     def reset_obstacles(self):
@@ -352,7 +351,6 @@ class GameController:
             self.main_window.moveButton.setEnabled(True)
             self.main_window.resetButton.setEnabled(True)
             self.main_window.clearButton.setEnabled(True)
-            self.main_window.statusBar().showMessage("Path complete!")
             return
 
         next_row, next_col = self.path.pop(0)
