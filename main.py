@@ -5,9 +5,11 @@ import sys
 
 # ======================= MODEL =======================
 
-class GridModel:
+class GridModel(QtCore.QObject):
+    updateSignal = QtCore.pyqtSignal()
     """Holds the logical state of the dungeon grid."""
     def __init__(self, rows, cols, default_color="brown"):
+        super().__init__()
         self.rows = rows
         self.cols = cols
         self.grid = [[default_color for _ in range(cols)] for _ in range(rows)]
@@ -15,6 +17,7 @@ class GridModel:
     def toggle_cell(self, row, col):
         """Toggle between brown and grey."""
         self.grid[row][col] = "grey" if self.grid[row][col] == "brown" else "brown"
+        self.updateSignal.emit()
         return self.grid[row][col]
 
     def get_cell_color(self, row, col):
@@ -24,6 +27,7 @@ class GridModel:
         for i in range(self.rows):
             for j in range(self.cols):
                 self.grid[i][j] = "brown"
+        self.updateSignal.emit()
 
 
 class PlayerModel:
@@ -35,14 +39,20 @@ class PlayerModel:
     def update_position(self, row, col):
         self.row, self.col = row, col
 
+    def reset_position(self):
+        self.row, self.col = 0, 0
+
 # ======================= VIEW =======================
 
 class DungeonView(QtWidgets.QTableWidget):
     cellClickedSignal = QtCore.pyqtSignal(int, int)
 
-    def __init__(self, rows, cols):
+    def __init__(self, rows, cols, grid_model):
         super().__init__(rows, cols)
         self.configure_table()
+        self.grid_model = grid_model
+        grid_model.updateSignal.connect(self.draw_grid)
+
 
     def configure_table(self):
         self.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -65,6 +75,13 @@ class DungeonView(QtWidgets.QTableWidget):
 
     def update_cell_color(self, row, col, color):
         self.item(row, col).setBackground(QtGui.QColor(color))
+
+    def draw_grid(self):
+        for i in range(self.grid_model.rows):
+            for j in range(self.grid_model.cols):
+                color = self.grid_model.get_cell_color(i, j)
+                self.update_cell_color(i, j, color)
+
 
 
 class Player(QtWidgets.QWidget):
@@ -149,6 +166,10 @@ class GameController:
             for j in range(self.grid_model.cols):
                 self.view.update_cell_color(i, j, "brown")
 
+    def reset_player(self):
+        self.player_model.reset_position()
+        self.player_widget.place_at(0, 0)
+
     def move_step(self):
         if not self.path:
             self.timer.stop()
@@ -167,7 +188,32 @@ class Pathfinder:
     def get_path(start_row, start_col, algorithm):
         print(f"Pathfinding using {algorithm} from ({start_row}, {start_col})")
         # TODO: Implement pathfinding here
-        return [(start_row, i) for i in range(1, 10)]  # Example
+        match algorithm:
+            case "BFS":
+                return Pathfinder.bfs(start_row, start_col)
+            case "DFS":
+                return Pathfinder.dfs(start_row, start_col)
+            case "Dijkstra":
+                return Pathfinder.dijkstra(start_row, start_col)
+            case "A*":
+                return Pathfinder.a_star(start_row, start_col)
+            
+    def bfs(start_row, start_col):
+        # Placeholder BFS implementation
+
+        return [(start_row + i, start_col) for i in range(1, 5)]
+    
+    def dfs(start_row, start_col):
+        # Placeholder DFS implementation
+        return [(start_row, start_col + i) for i in range(1, 5)]
+    
+    def dijkstra(start_row, start_col):
+        # Placeholder Dijkstra implementation
+        return [(start_row + i, start_col + i) for i in range(1, 5)]
+    
+    def a_star(start_row, start_col):
+        # Placeholder A* implementation
+        return [(start_row + i, start_col - i) for i in range(1, 5)]
 
 
 # ======================= MAIN WINDOW =======================
@@ -216,7 +262,7 @@ class MainApp(QtWidgets.QMainWindow):
         # --- Grid ---
         rows, cols = 10, 10
         self.grid_model = GridModel(rows, cols)
-        self.dungeonView = DungeonView(rows, cols)
+        self.dungeonView = DungeonView(rows, cols, self.grid_model)
         
         self.dungeonView.setMaximumSize(QtCore.QSize(606, 606))
         self.dungeonView.setMinimumSize(QtCore.QSize(606, 606))
@@ -249,8 +295,10 @@ class MainApp(QtWidgets.QMainWindow):
             self.dungeonView, self.player_widget, self
         )
 
+        # Connect buttons to Controller methods
         self.moveButton.clicked.connect(self.controller.start_movement)
         self.clearButton.clicked.connect(self.controller.reset_obstacles)
+        self.resetButton.clicked.connect(self.controller.reset_player)
     
     
     def load_stylesheet(self, file_path):
