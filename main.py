@@ -156,8 +156,21 @@ class MainApp(QtWidgets.QMainWindow):
         player_layout.addStretch()
         key_layout.addWidget(player_widget)
         
+        # Goal
+        goal_widget = QtWidgets.QWidget()
+        goal_layout = QtWidgets.QHBoxLayout(goal_widget)
+        goal_layout.setContentsMargins(0, 0, 0, 0)
+        goal_color = QtWidgets.QLabel()
+        goal_color.setFixedSize(30, 30)
+        goal_color.setStyleSheet("background-color: gold; border: 1px solid black;")
+        goal_text = QtWidgets.QLabel("Goal")
+        goal_layout.addWidget(goal_color)
+        goal_layout.addWidget(goal_text)
+        goal_layout.addStretch()
+        key_layout.addWidget(goal_widget)
         brush_layout.addLayout(key_layout)
         brush_layout.addStretch()
+        
 
         # Left side layout (main content)
         left_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
