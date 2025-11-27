@@ -27,6 +27,10 @@ class GameController:
         self.visited_cells = []  # Store cells visited during search
 
     def handle_cell_click(self, row, col):
+        # Prevent painting on start (0,0) or finish (bottom-right) positions
+        if (row == 0 and col == 0) or (row == self.grid_model.rows - 1 and col == self.grid_model.cols - 1):
+            return
+        
         # Get selected brush mode
         brush_id = self.main_window.brush_group.checkedId()
         
@@ -48,6 +52,10 @@ class GameController:
             self.paint_color = "grey"
     
     def handle_cell_drag(self, row, col):
+        # Prevent painting on start (0,0) or finish (bottom-right) positions
+        if (row == 0 and col == 0) or (row == self.grid_model.rows - 1 and col == self.grid_model.cols - 1):
+            return
+        
         # Paint with the same color as the initial click
         if self.paint_color is not None:
             self.grid_model.grid[row][col] = self.paint_color
