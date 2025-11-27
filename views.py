@@ -15,6 +15,7 @@ class DungeonView(QtWidgets.QTableWidget):
         self.is_dragging = False
         self.last_cell = None
         self.setMouseTracking(True)
+        self.draw_grid()
 
 
     def configure_table(self):

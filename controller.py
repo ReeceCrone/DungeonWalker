@@ -36,19 +36,15 @@ class GameController:
         
         if brush_id == 0:  # Toggle mode
             new_color = self.grid_model.toggle_cell(row, col)
-            self.view.update_cell_color(row, col, new_color)
             self.paint_color = new_color
         elif brush_id == 1:  # Normal (brown)
-            self.grid_model.grid[row][col] = "brown"
-            self.view.update_cell_color(row, col, "brown")
+            self.grid_model.set_cell_color(row, col, "brown")
             self.paint_color = "brown"
         elif brush_id == 2:  # Difficult (maroon)
-            self.grid_model.grid[row][col] = "maroon"
-            self.view.update_cell_color(row, col, "maroon")
+            self.grid_model.set_cell_color(row, col, "maroon")
             self.paint_color = "maroon"
         elif brush_id == 3:  # Obstacle (grey)
-            self.grid_model.grid[row][col] = "grey"
-            self.view.update_cell_color(row, col, "grey")
+            self.grid_model.set_cell_color(row, col, "grey")
             self.paint_color = "grey"
     
     def handle_cell_drag(self, row, col):
@@ -58,8 +54,7 @@ class GameController:
         
         # Paint with the same color as the initial click
         if self.paint_color is not None:
-            self.grid_model.grid[row][col] = self.paint_color
-            self.view.update_cell_color(row, col, self.paint_color)
+            self.grid_model.set_cell_color(row, col, self.paint_color)
 
     def start_movement(self):
         algorithm = self.main_window.searchComboBox.currentText()
@@ -83,10 +78,6 @@ class GameController:
 
     def reset_obstacles(self):
         self.grid_model.reset_grid()
-        # Update the view to reflect the reset
-        for i in range(self.grid_model.rows):
-            for j in range(self.grid_model.cols):
-                self.view.update_cell_color(i, j, "brown")
 
     def reset_player(self):
         self.player_model.reset_position()

@@ -9,18 +9,26 @@ class GridModel(QtCore.QObject):
         self.rows = rows
         self.cols = cols
         self.grid = [[default_color for _ in range(cols)] for _ in range(rows)]
+        # Set the goal cell (bottom-right) to gold
+        self.grid[rows - 1][cols - 1] = "gold"
 
     def toggle_cell(self, row, col):
-        """Cycle through tile types: brown (normal) -> #652921 (difficult) -> grey (obstacle) -> brown."""
+        """Cycle through tile types: brown (normal) -> maroon (difficult) -> gold (goal) -> grey (obstacle)"""
         current = self.grid[row][col]
         if current == "brown":
             self.grid[row][col] = "maroon"
         elif current == "maroon":
             self.grid[row][col] = "grey"
+        elif current == "gold":
+            self.grid[row][col] = "gold"
         else:  # grey
             self.grid[row][col] = "brown"
         self.updateSignal.emit()
         return self.grid[row][col]
+    
+    def set_cell_color(self, row, col, color):
+        self.grid[row][col] = color
+        self.updateSignal.emit()
 
     def get_cell_color(self, row, col):
         return self.grid[row][col]
@@ -32,6 +40,8 @@ class GridModel(QtCore.QObject):
             return None  # Impassable
         elif color == "maroon":
             return 3  # Difficult terrain
+        elif color == "gold":
+            return 1  # Goal has normal cost
         else:  # brown
             return 1  # Normal terrain
     
@@ -39,6 +49,8 @@ class GridModel(QtCore.QObject):
         for i in range(self.rows):
             for j in range(self.cols):
                 self.grid[i][j] = "brown"
+        # Keep the goal cell gold
+        self.grid[self.rows - 1][self.cols - 1] = "gold"
         self.updateSignal.emit()
 
 
