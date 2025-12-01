@@ -1,8 +1,12 @@
 from PyQt6 import QtWidgets, QtCore, QtGui
 import sys
-from models import GridModel, PlayerModel
-from views import DungeonView, Player, PathOverlay
-from controller import GameController
+from collections import deque
+import heapq
+
+
+# ======================= MODEL =======================
+
+class GridModel(QtCore.QObject):
     updateSignal = QtCore.pyqtSignal()
     """Holds the logical state of the dungeon grid."""
     def __init__(self, rows, cols, default_color="brown"):
@@ -10,20 +14,30 @@ from controller import GameController
         self.rows = rows
         self.cols = cols
         self.grid = [[default_color for _ in range(cols)] for _ in range(rows)]
+        # Set the goal cell (bottom-right) to gold
+        self.grid[rows - 1][cols - 1] = "gold"
 
     def toggle_cell(self, row, col):
-        """Cycle through tile types: brown (normal) -> #652921 (difficult) -> grey (obstacle) -> brown."""
+        """Cycle through tile types: brown (normal) -> maroon (difficult) -> gold (goal) -> grey (obstacle)"""
         current = self.grid[row][col]
         if current == "brown":
             self.grid[row][col] = "maroon"
         elif current == "maroon":
             self.grid[row][col] = "grey"
+        elif current == "gold":
+            self.grid[row][col] = "gold"
         else:  # grey
             self.grid[row][col] = "brown"
         self.updateSignal.emit()
         return self.grid[row][col]
+    
+    def set_cell_color(self, row, col, color):
+        """Set the color of a specific cell."""
+        self.grid[row][col] = color
+        self.updateSignal.emit()
 
     def get_cell_color(self, row, col):
+        """Get the color of a specific cell."""
         return self.grid[row][col]
     
     def get_cell_cost(self, row, col):
@@ -33,13 +47,18 @@ from controller import GameController
             return None  # Impassable
         elif color == "maroon":
             return 3  # Difficult terrain
+        elif color == "gold":
+            return 1  # Goal has normal cost
         else:  # brown
             return 1  # Normal terrain
     
     def reset_grid(self):
+        """Reset the grid to default state."""
         for i in range(self.rows):
             for j in range(self.cols):
                 self.grid[i][j] = "brown"
+        # Keep the goal cell gold
+        self.grid[self.rows - 1][self.cols - 1] = "gold"
         self.updateSignal.emit()
 
 
@@ -76,9 +95,11 @@ class DungeonView(QtWidgets.QTableWidget):
         self.is_dragging = False
         self.last_cell = None
         self.setMouseTracking(True)
+        self.draw_grid()
 
 
     def configure_table(self):
+        """Configure the table widget appearance and behavior."""
         self.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
         self.horizontalHeader().setVisible(False)
@@ -163,16 +184,15 @@ class Player(QtWidgets.QWidget):
         self.show()
         self.raise_()
 
-    # Place player at specific cell without animation
     def place_at(self, row, col):
+        """Place the player widget at a specific cell without animation"""
         table_pos = self.table.mapTo(self.parent(), QtCore.QPoint(0, 0))
-        print(self.table.columnWidth(0), self.table.rowHeight(0))
         x = table_pos.x() + col * self.table.columnWidth(0) + 10
         y = table_pos.y() + row * self.table.rowHeight(0) + 10
         self.move(x, y)
 
-    # Animate movement to new cell
     def animate_move(self, row, col):
+        """Animate the player's movement to a new cell"""
         table_pos = self.table.mapTo(self.parent(), QtCore.QPoint(0, 0))
         end_pos = QtCore.QPoint(
             table_pos.x() + col * self.table.columnWidth(0) + 10,
@@ -232,7 +252,7 @@ class PathOverlay(QtWidgets.QWidget):
         painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         
         # Draw visited cells in semi-transparent light blue
-        painter.setBrush(QtGui.QColor(173, 216, 230, 100))  # lightblue with alpha
+        painter.setBrush(QtGui.QColor(173, 216, 230, 100))
         painter.setPen(QtCore.Qt.PenStyle.NoPen)
         
         for row, col in self.visited_cells:
@@ -241,7 +261,7 @@ class PathOverlay(QtWidgets.QWidget):
             painter.drawRect(x, y, self.cell_size - 20, self.cell_size - 20)
         
         # Draw final path in semi-transparent cyan
-        painter.setBrush(QtGui.QColor(0, 255, 255, 150))  # cyan with alpha
+        painter.setBrush(QtGui.QColor(0, 255, 255, 150))
         
         for row, col in self.final_path:
             x = col * self.cell_size + 16
@@ -258,6 +278,7 @@ class PathOverlay(QtWidgets.QWidget):
 # ======================= CONTROLLER =======================
 
 class GameController:
+    """Handles interactions between the model and view."""
     def __init__(self, grid_model, player_model, dungeon_view, player_widget, path_overlay, main_window):
         self.grid_model = grid_model
         self.player_model = player_model
@@ -278,35 +299,39 @@ class GameController:
         self.timer.setInterval(300)
         self.timer.timeout.connect(self.move_step)
         self.path = []
-        self.final_path = []  # Store the optimal path
-        self.visited_cells = []  # Store cells visited during search
+        self.final_path = []
+        self.visited_cells = []
 
     def handle_cell_click(self, row, col):
+        # Prevent painting on start (0,0) or finish (bottom-right) positions
+        if (row == 0 and col == 0) or (row == self.grid_model.rows - 1 and col == self.grid_model.cols - 1):
+            return
+        
         # Get selected brush mode
         brush_id = self.main_window.brush_group.checkedId()
         
         if brush_id == 0:  # Toggle mode
             new_color = self.grid_model.toggle_cell(row, col)
-            self.view.update_cell_color(row, col, new_color)
             self.paint_color = new_color
         elif brush_id == 1:  # Normal (brown)
-            self.grid_model.grid[row][col] = "brown"
-            self.view.update_cell_color(row, col, "brown")
+            self.grid_model.set_cell_color(row, col, "brown")
             self.paint_color = "brown"
         elif brush_id == 2:  # Difficult (maroon)
-            self.grid_model.grid[row][col] = "maroon"
-            self.view.update_cell_color(row, col, "maroon")
+            self.grid_model.set_cell_color(row, col, "maroon")
             self.paint_color = "maroon"
         elif brush_id == 3:  # Obstacle (grey)
-            self.grid_model.grid[row][col] = "grey"
-            self.view.update_cell_color(row, col, "grey")
+            self.grid_model.set_cell_color(row, col, "grey")
             self.paint_color = "grey"
     
+    
     def handle_cell_drag(self, row, col):
+        # Prevent painting on start (0,0) or finish (bottom-right) positions
+        if (row == 0 and col == 0) or (row == self.grid_model.rows - 1 and col == self.grid_model.cols - 1):
+            return
+        
         # Paint with the same color as the initial click
         if self.paint_color is not None:
-            self.grid_model.grid[row][col] = self.paint_color
-            self.view.update_cell_color(row, col, self.paint_color)
+            self.grid_model.set_cell_color(row, col, self.paint_color)
 
     def start_movement(self):
         algorithm = self.main_window.searchComboBox.currentText()
@@ -330,15 +355,11 @@ class GameController:
 
     def reset_obstacles(self):
         self.grid_model.reset_grid()
-        # Update the view to reflect the reset
-        for i in range(self.grid_model.rows):
-            for j in range(self.grid_model.cols):
-                self.view.update_cell_color(i, j, "brown")
 
     def reset_player(self):
         self.player_model.reset_position()
         self.player_widget.place_at(0, 0)
-        self.path_overlay.clear()  # Clear the overlay
+        self.path_overlay.clear()
 
     def move_step(self):
         if not self.path:
@@ -364,9 +385,10 @@ class GameController:
 
 
 
-# ======================= SEARCH / PATHFINDING =======================
+# ======================= PATHFINDING =======================
 
 class Pathfinder:
+    """Handles pathfinding algorithms."""
     @staticmethod
     def get_path(start_row, start_col, algorithm, grid_model):
         print(f"Pathfinding using {algorithm} from ({start_row}, {start_col})")
@@ -383,28 +405,22 @@ class Pathfinder:
     @staticmethod
     def bfs(start_row, start_col, grid_model):
         """Breadth-First Search pathfinding - returns search history and final path"""
-        from collections import deque
-        
         rows, cols = grid_model.rows, grid_model.cols
-        goal_row, goal_col = rows - 1, cols - 1  # Bottom-right corner
+        goal_row, goal_col = rows - 1, cols - 1
         
-        # BFS uses a queue
         queue = deque([(start_row, start_col)])
         visited = set()
         visited.add((start_row, start_col))
-        parent = {}  # To reconstruct path
-        search_history = []  # Track every cell visited in order
+        parent = {}
+        search_history = []
         
-        # Directions: up, down, left, right
         directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         
         while queue:
             row, col = queue.popleft()
-            search_history.append((row, col))  # Add to search history
+            search_history.append((row, col))
             
-            # Check if we reached the goal
             if row == goal_row and col == goal_col:
-                # Reconstruct the optimal path
                 final_path = []
                 current = (goal_row, goal_col)
                 while current in parent:
@@ -418,19 +434,15 @@ class Pathfinder:
                     'final_path': final_path
                 }
             
-            # Explore neighbors
             for dr, dc in directions:
                 new_row, new_col = row + dr, col + dc
                 
-                # Check bounds
                 if 0 <= new_row < rows and 0 <= new_col < cols:
-                    # Check if not visited and not an obstacle (grey)
                     if (new_row, new_col) not in visited and grid_model.get_cell_color(new_row, new_col) != "grey":
                         visited.add((new_row, new_col))
                         parent[(new_row, new_col)] = (row, col)
                         queue.append((new_row, new_col))
         
-        # No path found
         return {'search_history': search_history, 'final_path': []}
     
     @staticmethod
@@ -439,10 +451,10 @@ class Pathfinder:
         stack = [(start_row, start_col)]
         visited = set()
         search_history = []
-        parent = {}  # Track parent for path reconstruction
+        parent = {}
         
         rows, cols = grid_model.rows, grid_model.cols
-        goal_row, goal_col = rows - 1, cols - 1  # Bottom-right corner
+        goal_row, goal_col = rows - 1, cols - 1
         
         directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
@@ -453,9 +465,7 @@ class Pathfinder:
             visited.add((row, col))
             search_history.append((row, col))
 
-            # Check if we reached the goal
             if row == goal_row and col == goal_col:
-                # Reconstruct path
                 final_path = []
                 current = (goal_row, goal_col)
                 while current in parent:
@@ -469,13 +479,10 @@ class Pathfinder:
                     'final_path': final_path
                 }
 
-            # Explore neighbors
             for dr, dc in directions:
                 new_row, new_col = row + dr, col + dc
 
-                # Check bounds
                 if 0 <= new_row < rows and 0 <= new_col < cols:
-                    # Check if not visited and not an obstacle (grey)
                     if (new_row, new_col) not in visited and grid_model.get_cell_color(new_row, new_col) != "grey":
                         if (new_row, new_col) not in parent:
                             parent[(new_row, new_col)] = (row, col)
@@ -483,21 +490,17 @@ class Pathfinder:
         
         return {'search_history': search_history, 'final_path': []}
 
-    
     @staticmethod
     def dijkstra(start_row, start_col, grid_model):
         """Dijkstra's algorithm - finds shortest path with weighted costs"""
-        import heapq
-        
         rows, cols = grid_model.rows, grid_model.cols
         goal_row, goal_col = rows - 1, cols - 1
         
-        # Priority queue: (cost, row, col)
         pq = [(0, start_row, start_col)]
         visited = set()
         search_history = []
         costs = {(start_row, start_col): 0}
-        parent = {}  # Track parent for path reconstruction
+        parent = {}
         
         directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         
@@ -510,9 +513,7 @@ class Pathfinder:
             visited.add((row, col))
             search_history.append((row, col))
             
-            # Check if goal reached
             if row == goal_row and col == goal_col:
-                # Reconstruct path
                 final_path = []
                 current = (goal_row, goal_col)
                 while current in parent:
@@ -526,7 +527,6 @@ class Pathfinder:
                     'final_path': final_path
                 }
             
-            # Explore neighbors
             for dr, dc in directions:
                 new_row, new_col = row + dr, col + dc
                 
@@ -546,22 +546,19 @@ class Pathfinder:
     @staticmethod
     def a_star(start_row, start_col, grid_model):
         """A* algorithm - finds shortest path using heuristic (Manhattan distance)"""
-        import heapq
-        
         rows, cols = grid_model.rows, grid_model.cols
         goal_row, goal_col = rows - 1, cols - 1
         
-        # Heuristic function: Manhattan distance to goal
         def heuristic(row, col):
+            """Manhattan distance heuristic"""
             return abs(row - goal_row) + abs(col - goal_col)
         
-        # Priority queue: (f_score, g_score, row, col)
         start_h = heuristic(start_row, start_col)
         pq = [(start_h, 0, start_row, start_col)]
         visited = set()
         search_history = []
         g_scores = {(start_row, start_col): 0}
-        parent = {}  # Track parent for path reconstruction
+        parent = {}
         
         directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         
@@ -574,9 +571,7 @@ class Pathfinder:
             visited.add((row, col))
             search_history.append((row, col))
             
-            # Check if goal reached
             if row == goal_row and col == goal_col:
-                # Reconstruct path
                 final_path = []
                 current = (goal_row, goal_col)
                 while current in parent:
@@ -590,7 +585,6 @@ class Pathfinder:
                     'final_path': final_path
                 }
             
-            # Explore neighbors
             for dr, dc in directions:
                 new_row, new_col = row + dr, col + dc
                 
@@ -684,24 +678,19 @@ class MainApp(QtWidgets.QMainWindow):
 
         self.algoLabel = QtWidgets.QLabel("Select Search Algorithm:")
         self.algoLabel.setFont(QtGui.QFont("Arial", 14))
-        
 
         self.searchComboBox = QtWidgets.QComboBox()
         self.searchComboBox.addItems(["BFS", "DFS", "Dijkstra", "A*"])
         
         self.moveButton = QtWidgets.QPushButton("Move Player")
- 
         self.resetButton = QtWidgets.QPushButton("Reset Player")
-
         self.clearButton = QtWidgets.QPushButton("Clear Obstacles")
-  
 
         button_layout.addWidget(self.moveButton)
         button_layout.addWidget(self.resetButton)  
         button_layout.addWidget(self.clearButton)
 
-
-        #Grid
+        # Grid
         rows, cols = 10, 10
         self.grid_model = GridModel(rows, cols)
         self.dungeonView = DungeonView(rows, cols, self.grid_model)
@@ -710,13 +699,12 @@ class MainApp(QtWidgets.QMainWindow):
         self.dungeonView.setMinimumSize(QtCore.QSize(606, 606))
 
 
-        #Algorithm layout
+        # Algorithm layout
         algo_layout.addWidget(self.algoLabel)
         algo_layout.addWidget(self.searchComboBox)
         algo_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-    
 
-        #Brush Selector Panel
+        # Brush Selector Panel
         brush_panel = QtWidgets.QWidget()
         brush_panel.setMaximumWidth(200)
         brush_layout = QtWidgets.QVBoxLayout(brush_panel)
@@ -746,8 +734,6 @@ class MainApp(QtWidgets.QMainWindow):
         brush_layout.addWidget(self.normalBrush)
         brush_layout.addWidget(self.difficultBrush)
         brush_layout.addWidget(self.obstacleBrush)
-        
-        # Add spacing
         brush_layout.addSpacing(20)
         
         # Key/Legend section
@@ -811,6 +797,19 @@ class MainApp(QtWidgets.QMainWindow):
         player_layout.addStretch()
         key_layout.addWidget(player_widget)
         
+        # Goal
+        goal_widget = QtWidgets.QWidget()
+        goal_layout = QtWidgets.QHBoxLayout(goal_widget)
+        goal_layout.setContentsMargins(0, 0, 0, 0)
+        goal_color = QtWidgets.QLabel()
+        goal_color.setFixedSize(30, 30)
+        goal_color.setStyleSheet("background-color: gold; border: 1px solid black;")
+        goal_text = QtWidgets.QLabel("Goal")
+        goal_layout.addWidget(goal_color)
+        goal_layout.addWidget(goal_text)
+        goal_layout.addStretch()
+        key_layout.addWidget(goal_widget)
+        
         brush_layout.addLayout(key_layout)
         brush_layout.addStretch()
 
@@ -825,8 +824,6 @@ class MainApp(QtWidgets.QMainWindow):
         # Add to main horizontal layout
         main_layout.addLayout(left_layout)
         main_layout.addWidget(brush_panel)
-  
-       
 
         # Player setup
         self.player_model = PlayerModel()
@@ -848,20 +845,22 @@ class MainApp(QtWidgets.QMainWindow):
         self.moveButton.clicked.connect(self.controller.start_movement)
         self.clearButton.clicked.connect(self.controller.reset_obstacles)
         self.resetButton.clicked.connect(self.controller.reset_player)
+    
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if hasattr(self, "player_widget"):  # Make sure player widget exists
+        if hasattr(self, "player_widget"):
             self.player_widget.place_at(
                 self.player_model.row,
                 self.player_model.col
             )
-        if hasattr(self, "path_overlay"):  # Reposition path overlay
+        if hasattr(self, "path_overlay"):
             self.path_overlay.position_overlay()
 
 
 # ======================= EXECUTION =======================
 
-app = QtWidgets.QApplication(sys.argv)
-window = MainApp()
-window.show()
-sys.exit(app.exec())
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(sys.argv)
+    window = MainApp()
+    window.show()
+    sys.exit(app.exec())
