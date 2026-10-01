@@ -33,4 +33,4 @@ Upon starting the program you are met with the player at the top left of the gri
 
 This demo showcases the core functionality of Dungeon Walker, including interactive obstacle creation, pathfinding algorithm selection, and animated movement through the generated dungeon.
 
-<img src="screenshots/exampleVideo.mp4" width="600">
+<img src="screenshots/Animation.gif" width="602">
